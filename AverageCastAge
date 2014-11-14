@@ -1,0 +1,208 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+
+import org.joda.time.LocalDate;
+import org.joda.time.Period;
+import org.joda.time.PeriodType;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+public class AverageCastAge {
+
+	private final String USER_AGENT = "Mozilla/5.0";
+
+	public static void main(String[] args) throws Exception {
+
+		AverageCastAge ageCalc = new AverageCastAge();
+		HashMap<String, String> allMoviesNames = new HashMap<String, String>();
+		int allMovies = ageCalc.findTotal();
+		if (allMovies > 0)
+		{
+			allMoviesNames = ageCalc.captureMovieTitles(allMovies);
+		}
+		System.out.println(allMoviesNames.size());
+		for (String name : allMoviesNames.keySet())
+		{
+			System.out.println(name + "__" + allMoviesNames.get(name));
+			System.out.println(ageCalc.captureAllCastAvg(allMoviesNames.get(name), name));
+		}
+
+	}
+
+	/**
+	 * Captures the total number of movies that are being shown in theaters
+	 * Rotten tomatoes API doesnt allow more than 50 results per JSON page
+	 * hence we need to hit the url based on the number of results
+	 * @return
+	 * @throws Exception
+	 */
+	private int findTotal() throws Exception {
+
+		int totalMovies = 0;
+
+		String url = "http://api.rottentomatoes.com/api/public/v1.0/lists/movies/in_theaters.json?apikey=6rfdvqjd4kxp22car8fu9c4m&page_limit=50&page=1";
+
+		JSONObject jsonobj = new JSONObject(captureUrlResponse(url));
+		totalMovies = jsonobj.getInt("total");
+		System.out.println("total - " + totalMovies);
+
+		return totalMovies;
+
+	}
+
+	/**
+	 * Captures the list of movies as well as url to the JSON
+	 * which provides us with list of actors(cast) as well
+	 * Returns a Map, with movie name as key and cast json url
+	 * as value
+	 * @param totalMovies
+	 * @return
+	 * @throws IOException
+	 */
+	public HashMap<String, String> captureMovieTitles(int totalMovies) throws IOException {
+		int pageNumber = 1;
+		HashMap<String, String> moviesList = new HashMap<String, String>();
+		while (totalMovies > 0) {
+			String url = "http://api.rottentomatoes.com/api/public/v1.0/lists/movies/in_theaters.json?"
+					+ "apikey=6rfdvqjd4kxp22car8fu9c4m&page_limit=50&page="
+					+ pageNumber;
+
+			JSONObject jsonobj = new JSONObject(captureUrlResponse(url));
+
+			JSONArray arr = jsonobj.getJSONArray("movies");
+			//JSONObject castLinks = jsonobj.getJSONArray("movies").;
+			for (int i = 0; i < arr.length(); i++) {
+				String title = arr.getJSONObject(i).getString("title");
+				String castUrl = arr.getJSONObject(i).getJSONObject("links").getString("cast");
+				moviesList.put(title, castUrl);
+				// System.out.println(title);
+			}
+			// System.out.println(count);
+			totalMovies = totalMovies - 50;
+			pageNumber = pageNumber + 1;
+		}
+		return moviesList;
+
+	}
+
+	/**
+	 * Given an url, this method performs or mocks a get request 
+	 * and returns the response in string format
+	 * @param url
+	 * @return
+	 * @throws IOException
+	 */
+	public String captureUrlResponse(String url) throws IOException {
+		
+		URL obj = new URL(url);
+		HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+		con.setRequestMethod("GET");
+
+		con.setRequestProperty("User-Agent", USER_AGENT);
+
+		BufferedReader in = new BufferedReader(new InputStreamReader(
+				con.getInputStream()));
+		String inputLine;
+		StringBuffer response = new StringBuffer();
+
+		while ((inputLine = in.readLine()) != null) {
+			response.append(inputLine);
+		}
+		in.close();
+
+		return response.toString();
+	}
+	
+	/**
+	 * Given an url which contains JSON to cast list of a particular movie
+	 * this method calculates the average age of cast per movie
+	 * @param url
+	 * @param movieName
+	 * @return
+	 * @throws JSONException
+	 * @throws IOException
+	 * @throws ParseException
+	 */
+	public int captureAllCastAvg(String url, String movieName) throws JSONException, IOException, ParseException
+	{
+		url = url + "?apikey=6rfdvqjd4kxp22car8fu9c4m";
+		int totalCastAge = 0;
+		int totalCastCount = 0;
+		JSONObject jsonobj = new JSONObject(captureUrlResponse(url));
+
+		JSONArray arr = jsonobj.getJSONArray("cast");
+		//JSONObject castLinks = jsonobj.getJSONArray("movies").;
+		for (int i = 0; i < arr.length(); i++) {
+			String actName = arr.getJSONObject(i).getString("name");
+			int actorAge = captureEachActorAge(actName, movieName);
+			if ( actorAge > 0)
+			{
+				totalCastAge = totalCastAge + actorAge;
+				totalCastCount = totalCastCount + 1;
+			}
+		}
+		if (totalCastCount == 0)
+		{
+			return 0;
+		}
+		else
+		{
+			return totalCastAge/totalCastCount;
+		}
+
+	}
+	
+	/**
+	 * This method does the job of looking up an actor/actress in the Freebase database
+	 * and captures the date of birth of the actor/actress
+	 * Freebase doesn't seem to have entire list of actors, hence there are scenarios
+	 * where we end getting no results from Freebase JSON. In these particular scenarios
+	 * i have returned 0 as the actor's age.
+	 * Used the JODA time library to calculate age in months
+	 * @param actorName
+	 * @param movieName
+	 * @return
+	 * @throws JSONException
+	 * @throws IOException
+	 * @throws ParseException
+	 */
+	public int captureEachActorAge(String actorName, String movieName) throws JSONException, IOException, ParseException{
+		
+		/*String query = URLEncoder.encode("[{\"type\":\"/film/film\",\"name\":\""+movieName+"\","
+						+ "\"starring\":[{\"actor\":[{\"name\":\""+actorName+"\",\"/people/person/date_of_birth\":null}]}]}]"
+								+ "&key=AIzaSyAjQxwifXAZVBy0m0S0fHnIaA56MxpBUCU", "UTF-8");
+		
+		String ageUrl = "https://www.googleapis.com/freebase/v1/mqlread/?lang=%2Flang%2Fen&query=" + query;*/
+		actorName = actorName.replace(" ", "+");
+		movieName = movieName.replace(" ", "+");
+		String ageUrl = "https://www.googleapis.com/freebase/v1/mqlread/?lang=%2Flang%2Fen&query=%5B%7B+%22type%22%3A+%22%2Ffilm%2Ffilm%22%2C+%22name%22%3A+%22"+movieName+"%22%2C+%22starring%22%3A+%5B%7B+%22actor%22%3A+%5B%7B+%22name%22%3A+%22"+actorName+"%22%2C+%22%2Fpeople%2Fperson%2Fdate_of_birth%22%3A+null+%7D%5D+%7D%5D+%7D%5D";
+		System.out.println(ageUrl);
+		System.out.println(captureUrlResponse(ageUrl));
+		JSONObject jsonobj = new JSONObject(captureUrlResponse(ageUrl));
+		int ageInMonths = 0;
+		JSONArray arr = jsonobj.getJSONArray("result");
+		if (arr.length() > 0)
+		{
+			String DOB = arr.getJSONObject(0).getJSONArray("starring").getJSONObject(0).getJSONObject("actor").getString("/people/person/date_of_birth");
+			if (DOB == "null")
+			{
+				return 0;
+			}
+			String[] dobSplit = DOB.split("-");
+			LocalDate birthdate = new LocalDate (Integer.parseInt(dobSplit[0]), Integer.parseInt(dobSplit[1]), Integer.parseInt(dobSplit[2]));
+			LocalDate now = new LocalDate();
+			Period period = new Period(birthdate, now, PeriodType.yearMonthDay());
+			ageInMonths = period.getMonths();
+		}
+			return ageInMonths;
+	}
+}
