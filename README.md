@@ -23,6 +23,19 @@ http://api.rottentomatoes.com/api/public/v1.0/movies/771355766/cast.json?apikey=
 Get the list of movies that are being show in theatres now:
 http://api.rottentomatoes.com/api/public/v1.0/lists/movies/in_theaters.json?apikey=6rfdvqjd4kxp22car8fu9c4m
 
-/** need to find a way to retrive each actor's age **/
+Once, we have list of movies and actors associated with those movies, we can then use freebase data to capture
+each actors date of birth.
+
+Sample freebase query :
+[{
+  "/people/person/date_of_birth": null,
+  "name": "Scott Adsit",
+  "mid": null,
+  "type": "/film/actor"
+}]
+
+and sample get url :
+
+https://www.googleapis.com/freebase/v1/mqlread/?lang=%2Flang%2Fen&query=[{ "/people/person/date_of_birth": null,"name": "Scott Adist","type": "/film/actor"}]
 
 
