@@ -3,10 +3,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.HashMap;
 
 import org.joda.time.LocalDate;
@@ -22,18 +19,27 @@ public class AverageCastAge {
 
 	public static void main(String[] args) throws Exception {
 
-		AverageCastAge ageCalc = new AverageCastAge();
+		AverageCastAge avgAge = new AverageCastAge();
 		HashMap<String, String> allMoviesNames = new HashMap<String, String>();
-		int allMovies = ageCalc.findTotal();
+		int allMovies = avgAge.findTotal();
 		if (allMovies > 0)
 		{
-			allMoviesNames = ageCalc.captureMovieTitles(allMovies);
+			allMoviesNames = avgAge.captureMovieTitles(allMovies);
 		}
 		System.out.println(allMoviesNames.size());
 		for (String name : allMoviesNames.keySet())
 		{
-			System.out.println(name + "__" + allMoviesNames.get(name));
-			System.out.println(ageCalc.captureAllCastAvg(allMoviesNames.get(name), name));
+			//System.out.println(name + "__" + allMoviesNames.get(name));
+			int avgCastAge = avgAge.captureAllCastAvg(allMoviesNames.get(name), name);
+			if (avgCastAge == 0)
+			{
+				System.out.println("Movie Name is : " + name + "Do not have enough data to capture average cast age!!");
+			}
+			else
+			{
+				System.out.println("Movie Name is : " + name + "Average Cast Age : " + avgCastAge);
+			}
+			System.out.println();
 		}
 
 	}
@@ -183,25 +189,52 @@ public class AverageCastAge {
 		
 		String ageUrl = "https://www.googleapis.com/freebase/v1/mqlread/?lang=%2Flang%2Fen&query=" + query;*/
 		actorName = actorName.replace(" ", "+");
+		actorName = actorName.replace("\"","\\\"");
 		movieName = movieName.replace(" ", "+");
-		String ageUrl = "https://www.googleapis.com/freebase/v1/mqlread/?lang=%2Flang%2Fen&query=%5B%7B+%22type%22%3A+%22%2Ffilm%2Ffilm%22%2C+%22name%22%3A+%22"+movieName+"%22%2C+%22starring%22%3A+%5B%7B+%22actor%22%3A+%5B%7B+%22name%22%3A+%22"+actorName+"%22%2C+%22%2Fpeople%2Fperson%2Fdate_of_birth%22%3A+null+%7D%5D+%7D%5D+%7D%5D";
-		System.out.println(ageUrl);
-		System.out.println(captureUrlResponse(ageUrl));
+		movieName = movieName.replace("&", "%26");
+		String ageUrl = "https://www.googleapis.com/freebase/v1/mqlread/?key=AIzaSyAjQxwifXAZVBy0m0S0fHnIaA56MxpBUCU&"
+				+ "lang=%2Flang%2Fen&query=%5B%7B+%22type%22%3A+%22%2Ffilm%2Ffilm%22%2C+%22name%22%3A+%22"+movieName+"%22%2C+%22starring%22%3A+%5B%7B+%22actor%22%3A+%5B%7B+%22name%22%3A+%22"+actorName+"%22%2C+%22%2Fpeople%2Fperson%2Fdate_of_birth%22%3A+null+%7D%5D+%7D%5D+%7D%5D";
+		//System.out.println(ageUrl);
+		//System.out.println(captureUrlResponse(ageUrl));
 		JSONObject jsonobj = new JSONObject(captureUrlResponse(ageUrl));
 		int ageInMonths = 0;
 		JSONArray arr = jsonobj.getJSONArray("result");
 		if (arr.length() > 0)
 		{
-			String DOB = arr.getJSONObject(0).getJSONArray("starring").getJSONObject(0).getJSONObject("actor").getString("/people/person/date_of_birth");
+			//TODO: Fix the JSON parsing error
+			//looks like "actor" is not a json object
+			String DOB = arr.getJSONObject(0).getJSONArray("starring").getJSONObject(0).getJSONArray("actor")
+					.getJSONObject(0).get("/people/person/date_of_birth").toString();
+					//getString("/people/person/date_of_birth");
 			if (DOB == "null")
 			{
 				return 0;
 			}
-			String[] dobSplit = DOB.split("-");
+			String [] dobSplit = new String[3];
+			if (DOB.contains("-"))
+			{
+				if (DOB.length() > 8)
+				{
+					dobSplit = DOB.split("-");
+				}
+				else
+				{
+					DOB = DOB + "-01";
+					dobSplit = DOB.split("-");
+				}
+			}
+			else{
+				//if month and day are not available in freebase, defaulting to Jan 1
+				dobSplit[0] = DOB;
+				dobSplit[1] = "1";
+				dobSplit[2] = "1";
+				
+			}
+			
 			LocalDate birthdate = new LocalDate (Integer.parseInt(dobSplit[0]), Integer.parseInt(dobSplit[1]), Integer.parseInt(dobSplit[2]));
 			LocalDate now = new LocalDate();
 			Period period = new Period(birthdate, now, PeriodType.yearMonthDay());
-			ageInMonths = period.getMonths();
+			ageInMonths = period.getYears();
 		}
 			return ageInMonths;
 	}
