@@ -23,6 +23,10 @@ http://api.rottentomatoes.com/api/public/v1.0/movies/771355766/cast.json?apikey=
 Get the list of movies that are being show in theatres now:
 http://api.rottentomatoes.com/api/public/v1.0/lists/movies/in_theaters.json?apikey=6rfdvqjd4kxp22car8fu9c4m
 
+Update/Design Change :
+Rotten Tomatoes API restricts number of JSON items per page to a maximum of 50. So, we need to capture movies in
+theatres using a loop.
+
 Once, we have list of movies and actors associated with those movies, we can then use freebase data to capture
 each actors date of birth.
 
