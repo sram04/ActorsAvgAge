@@ -16,7 +16,8 @@ import org.json.JSONObject;
 public class AverageCastAge {
 
 	private final String USER_AGENT = "Mozilla/5.0";
-
+	
+	//Driver program, a starting point
 	public static void main(String[] args) throws Exception {
 
 		AverageCastAge avgAge = new AverageCastAge();
@@ -26,18 +27,22 @@ public class AverageCastAge {
 		{
 			allMoviesNames = avgAge.captureMovieTitles(allMovies);
 		}
-		System.out.println(allMoviesNames.size());
+		else
+		{
+			System.out.println("No In Theater movies found!");
+			return;
+		}
+		//System.out.println(allMoviesNames.size());
 		for (String name : allMoviesNames.keySet())
 		{
-			//System.out.println(name + "__" + allMoviesNames.get(name));
 			int avgCastAge = avgAge.captureAllCastAvg(allMoviesNames.get(name), name);
 			if (avgCastAge == 0)
 			{
-				System.out.println("Movie Name is : " + name + "Do not have enough data to capture average cast age!!");
+				System.out.println("Movie Name is : " + name + " - Do not have enough data to capture average cast age!!");
 			}
 			else
 			{
-				System.out.println("Movie Name is : " + name + "Average Cast Age : " + avgCastAge);
+				System.out.println("Movie Name is : " + name + " - Average Cast Age : " + avgCastAge);
 			}
 			System.out.println();
 		}
@@ -46,12 +51,14 @@ public class AverageCastAge {
 
 	/**
 	 * Captures the total number of movies that are being shown in theaters
-	 * Rotten tomatoes API doesnt allow more than 50 results per JSON page
-	 * hence we need to hit the url based on the number of results
-	 * @return
+	 * Rotten tomatoes API doesn't allow more than 50 results per JSON page
+	 * hence we need to hit the URL based on the number of results
+	 * @return count of movies that are being played in theaters now
+	 * @throws IOException 
+	 * @throws JSONException 
 	 * @throws Exception
 	 */
-	private int findTotal() throws Exception {
+	private int findTotal() throws JSONException, IOException{
 
 		int totalMovies = 0;
 
@@ -66,17 +73,21 @@ public class AverageCastAge {
 	}
 
 	/**
-	 * Captures the list of movies as well as url to the JSON
+	 * Captures the list of movies as well as URL to the JSON
 	 * which provides us with list of actors(cast) as well
-	 * Returns a Map, with movie name as key and cast json url
+	 * Returns a Map, with movie name as key and cast JSON URL
 	 * as value
 	 * @param totalMovies
-	 * @return
+	 * @return a hash map with Movie name and a URL to get cast list
 	 * @throws IOException
 	 */
 	public HashMap<String, String> captureMovieTitles(int totalMovies) throws IOException {
+		
 		int pageNumber = 1;
 		HashMap<String, String> moviesList = new HashMap<String, String>();
+		
+		//rotten tomatoes api limits 50 records per a get request, so
+		//iterating based on total no of records
 		while (totalMovies > 0) {
 			String url = "http://api.rottentomatoes.com/api/public/v1.0/lists/movies/in_theaters.json?"
 					+ "apikey=6rfdvqjd4kxp22car8fu9c4m&page_limit=50&page="
@@ -85,14 +96,11 @@ public class AverageCastAge {
 			JSONObject jsonobj = new JSONObject(captureUrlResponse(url));
 
 			JSONArray arr = jsonobj.getJSONArray("movies");
-			//JSONObject castLinks = jsonobj.getJSONArray("movies").;
 			for (int i = 0; i < arr.length(); i++) {
 				String title = arr.getJSONObject(i).getString("title");
 				String castUrl = arr.getJSONObject(i).getJSONObject("links").getString("cast");
 				moviesList.put(title, castUrl);
-				// System.out.println(title);
 			}
-			// System.out.println(count);
 			totalMovies = totalMovies - 50;
 			pageNumber = pageNumber + 1;
 		}
@@ -146,7 +154,6 @@ public class AverageCastAge {
 		JSONObject jsonobj = new JSONObject(captureUrlResponse(url));
 
 		JSONArray arr = jsonobj.getJSONArray("cast");
-		//JSONObject castLinks = jsonobj.getJSONArray("movies").;
 		for (int i = 0; i < arr.length(); i++) {
 			String actName = arr.getJSONObject(i).getString("name");
 			int actorAge = captureEachActorAge(actName, movieName);
@@ -181,31 +188,24 @@ public class AverageCastAge {
 	 * @throws IOException
 	 * @throws ParseException
 	 */
-	public int captureEachActorAge(String actorName, String movieName) throws JSONException, IOException, ParseException{
+	public int captureEachActorAge(String actorName, String movieName) throws JSONException, IOException{
 		
-		/*String query = URLEncoder.encode("[{\"type\":\"/film/film\",\"name\":\""+movieName+"\","
-						+ "\"starring\":[{\"actor\":[{\"name\":\""+actorName+"\",\"/people/person/date_of_birth\":null}]}]}]"
-								+ "&key=AIzaSyAjQxwifXAZVBy0m0S0fHnIaA56MxpBUCU", "UTF-8");
-		
-		String ageUrl = "https://www.googleapis.com/freebase/v1/mqlread/?lang=%2Flang%2Fen&query=" + query;*/
 		actorName = actorName.replace(" ", "+");
 		actorName = actorName.replace("\"","\\\"");
 		movieName = movieName.replace(" ", "+");
 		movieName = movieName.replace("&", "%26");
 		String ageUrl = "https://www.googleapis.com/freebase/v1/mqlread/?key=AIzaSyAjQxwifXAZVBy0m0S0fHnIaA56MxpBUCU&"
 				+ "lang=%2Flang%2Fen&query=%5B%7B+%22type%22%3A+%22%2Ffilm%2Ffilm%22%2C+%22name%22%3A+%22"+movieName+"%22%2C+%22starring%22%3A+%5B%7B+%22actor%22%3A+%5B%7B+%22name%22%3A+%22"+actorName+"%22%2C+%22%2Fpeople%2Fperson%2Fdate_of_birth%22%3A+null+%7D%5D+%7D%5D+%7D%5D";
-		//System.out.println(ageUrl);
-		//System.out.println(captureUrlResponse(ageUrl));
+
 		JSONObject jsonobj = new JSONObject(captureUrlResponse(ageUrl));
 		int ageInMonths = 0;
 		JSONArray arr = jsonobj.getJSONArray("result");
 		if (arr.length() > 0)
 		{
-			//TODO: Fix the JSON parsing error
-			//looks like "actor" is not a json object
+			//capture the date of birth of an actor
 			String DOB = arr.getJSONObject(0).getJSONArray("starring").getJSONObject(0).getJSONArray("actor")
 					.getJSONObject(0).get("/people/person/date_of_birth").toString();
-					//getString("/people/person/date_of_birth");
+			
 			if (DOB == "null")
 			{
 				return 0;
@@ -213,6 +213,8 @@ public class AverageCastAge {
 			String [] dobSplit = new String[3];
 			if (DOB.contains("-"))
 			{
+				//check if the date is in YYYY - MM - DD format
+				//if not, append default date and month
 				if (DOB.length() > 8)
 				{
 					dobSplit = DOB.split("-");
