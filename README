@@ -1,8 +1,6 @@
 ActorsAvgAge
 ============
 
-Coding Challenge
-
 Approach and Data considerations:
 
 Initial idea to solve the challenge
@@ -32,14 +30,29 @@ each actors date of birth.
 
 Sample freebase query :
 [{
-  "/people/person/date_of_birth": null,
-  "name": "Scott Adsit",
-  "mid": null,
-  "type": "/film/actor"
+  "type": "/film/film",
+  "name": "Snatch",
+  "starring": [{
+    "actor": [{
+      "name": "Brad Pitt",
+      "/people/person/date_of_birth": null
+    }]
+  }]
 }]
 
 and sample get url :
 
 https://www.googleapis.com/freebase/v1/mqlread/?lang=%2Flang%2Fen&query=[{ "/people/person/date_of_birth": null,"name": "Scott Adist","type": "/film/actor"}]
+
+Few exceptions and Design considerations:
+
+There are few movies which are fairly new and some actors from the cast of those movies are not available in the Freebase.
+Say there are 10 actors in a movie and freebase has only 8 actors from the above said 10, in these scenarios i have considered
+the average to be totalage/8 instead of totalage/10.
+
+Incase, there is a movie where none of its actors are available in Free base, i have displayed that we do not have enough
+information to capture average cast age.
+
+
 
 
