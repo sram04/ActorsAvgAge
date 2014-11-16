@@ -8,6 +8,8 @@ Org.JSON and JODA Time.
 I wanted to make sure this project could be executable outside any IDE i..e the solution should be executable via 
 Command Prompt or a Terminal, so i have exported a runnable jar from eclipse along with all required libraries.
 
+The .jar file should be available under the "Release" link of the git repository and can be downloaded.
+
 To execute the solution from a command prompt / Terminal on a machine with Java installed, run the following command -
 
 java -jar AverageCastAge.jar 
